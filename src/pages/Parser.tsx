@@ -40,8 +40,10 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
     }
     const boxID = supplyTable.rows.map(({ 'ШК короба': boxID }) => (boxID))
     const boxNumberMap: Record<string, string | undefined> = {}
+    const boxMonoMap: Record<string, string | undefined> = {}
     const boxesList = listComplectionTable.rows.reduce<Record<string, string>[]>((boxAccumulator, complectionTableRow) => {
         const {
+            'Артикул': SKU,
             'Короб': boxes,
             'Кол-во': count,
             'Баркод товара': barCode,
@@ -59,7 +61,13 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
                 'Кол-во товаров': count,
                 'ШК короба': '',
                 'Срок годности': '',
-                'test': String(`кол-во:${count} row: ${row} match: ${match} count1: ${count1} rawType: ${rawType} count2: ${count2}`),
+                'test': String(`кол-во:${count
+                    } подстрока: ${row
+                    } найдено: ${match
+                    } ${type === 1 ? 'шт' : ''}: ${count1
+                    } rawType: ${rawType
+                    } короб: ${count2
+                }`),
             }
 
             switch(type) {
@@ -94,13 +102,17 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
                 result['Кол-во товаров'] = count1 || count
 
                 if(count2) {
-                    for(let i = 0; i === +count2; i++) {
+                    for(let i = 0; i < +count2; i++) {
                         result['ШК короба'] = boxID.pop() || ''
                         boxAccumulator.push({ ...result })
+
+                        boxMonoMap[result['ШК короба']] = `${SKU} - ${result['Кол-во товаров']}`
                     }
                 } else {
                     result['ШК короба'] = boxID.pop() || ''
                     boxAccumulator.push({ ...result })
+
+                    boxMonoMap[result['ШК короба']] = `${SKU} - ${result['Кол-во товаров']}`
                 }
 
                 break;
@@ -112,13 +124,29 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
         return boxAccumulator;
     }, [])
     const compareTable: NormalizeResult = {
-        headers: [...supplyTable.headers, 'test'],
+        headers: [...supplyTable.headers, 'Тип', 'test'],
         rows: boxesList,
     }
 
     console.log(compareTable)
+
+    const box1  = Object.entries(boxNumberMap).map(([key, value]) => ({
+        'ШК': String(value),
+        'Тип': 'ОБЩ',
+        'Номер/Артикул': String(key)
+    }))
+    const box2  = Object.entries(boxMonoMap).map(([key, value]) => ({
+        'ШК': String(key),
+        'Тип': 'ОТД',
+        'Номер/Артикул': String(value)
+    }))
+
+    const boxList: NormalizeResult = {
+        headers: ['ШК', 'Тип', 'Номер/Артикул'],
+        rows: [...box1, ...box2],
+    }
     
-    exportNormalizeResultToXlsx(compareTable, 'filled-shk-excel')
+    exportNormalizeResultToXlsx([compareTable, boxList], 'filled-shk-excel', ['Sheet1', 'Sheet2'])
 }
 
 function Parser() {
