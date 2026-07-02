@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useId, useRef } from 'react'
 import FileSelect from '../components/FileSelect';
 import parseAndNormalizeFile from '../utils/xlsx/parse';
 import exportNormalizeResultToXlsx from '../utils/xlsx/export';
@@ -39,7 +39,7 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
         'M': 2,
     }
     const boxID = supplyTable.rows.map(({ 'ШК короба': boxID }) => (boxID))
-    const boxNumberMap = {}
+    const boxNumberMap: Record<string, string | undefined> = {}
     const boxesList = listComplectionTable.rows.reduce<Record<string, string>[]>((boxAccumulator, complectionTableRow) => {
         const {
             'Короб': boxes,
@@ -49,30 +49,59 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
         const boxMap = (boxes || '').replaceAll(/\s/gi, '').split(/[,\n\r]/gmi)
 
         boxMap.forEach((row) => {
-            const matching = Array.from(row.matchAll(/(\d{0,})([кКмМmMKk])(\d{0,}[-]?\d{0,})/gmi), (i) => [...i])
-            const [match, count1, rawType, count2] = matching
+            if(row === 'Короб') { return }
+
+            const [matching] = Array.from(row.matchAll(/(\d{0,})([КкKkМмMm])(\d{0,}(?:[-]\d{1,})?)/gmi), (i) => [...i])
+            const [match, count1, rawType, count2] = matching || []
             const type = TYPE_DICTIONARY[String(rawType)]
             const result = {
                 'Баркод товара': barCode,
                 'Кол-во товаров': count,
                 'ШК короба': '',
                 'Срок годности': '',
-                'test': `match: ${match}
-                count1: ${count1}
-                rawType: ${rawType}
-                count2: ${count2}`.trim(),
+                'test': String(`кол-во:${count} row: ${row} match: ${match} count1: ${count1} rawType: ${rawType} count2: ${count2}`),
             }
 
             switch(type) {
             case 1: {// Общий короб
-                result['ШК короба'] = boxID.pop() || ''
-                boxAccumulator.push(result)
+                const [from, to] = count2.split('-')
+
+                if (to) {// Диапазон коробов
+                    for(let i = +from; i <= +to; i++) {
+                        const newId = boxNumberMap[i] || boxID.pop()
+
+                        boxNumberMap[i] = newId
+
+                        result['ШК короба'] = newId || ''
+                        result['Кол-во товаров'] = count1
+
+                        boxAccumulator.push({ ...result })
+                    }
+                } else {// Один короб
+                    const id = boxNumberMap[from] || boxID.pop()
+
+                    boxNumberMap[from] = id
+
+                    result['ШК короба'] = id || ''
+                    result['Кол-во товаров'] = count1 || count
+
+                    boxAccumulator.push({ ...result })
+                }
 
                 break;
             }
             case 2: // Моно короб (отдельный)
-                result['ШК короба'] = boxID.pop() || ''
-                boxAccumulator.push(result)
+                result['Кол-во товаров'] = count1 || count
+
+                if(count2) {
+                    for(let i = 0; i === +count2; i++) {
+                        result['ШК короба'] = boxID.pop() || ''
+                        boxAccumulator.push({ ...result })
+                    }
+                } else {
+                    result['ШК короба'] = boxID.pop() || ''
+                    boxAccumulator.push({ ...result })
+                }
 
                 break;
             default:
@@ -86,11 +115,14 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
         headers: [...supplyTable.headers, 'test'],
         rows: boxesList,
     }
+
+    console.log(compareTable)
     
     exportNormalizeResultToXlsx(compareTable, 'filled-shk-excel')
 }
 
 function Parser() {
+    const id = useId()
     const supplyTable = useRef<NormalizeResult>(DEFAULT_TABLE)
     const listComplectionTable = useRef<NormalizeResult>(DEFAULT_TABLE)
 
@@ -145,7 +177,7 @@ function Parser() {
                 {
                     key: 'Баркод товара',
                     name: 'Баркод товара',
-                    index: 8,
+                    index: 13,
                 },
             ],
             4
@@ -173,7 +205,40 @@ function Parser() {
         />
       </section>
       <section>
-        <button type="button" onClick={handleOnDownload}>Download</button>
+        <button
+            id={id}
+            style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                padding: 0,
+                margin: -1,
+                overflow: "hidden",
+                clip: "rect(0, 0, 0, 0)",
+                whiteSpace: "nowrap",
+                border: 0,
+            }}
+            type="button" onClick={handleOnDownload}
+        >
+            Download
+        </button>
+
+        <label
+            htmlFor={id}
+            style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "10px 14px",
+            border: "1px solid #ccc",
+            borderRadius: 8,
+            cursor: "pointer",
+            background: "#fff",
+            width: "fit-content",
+            }}
+        >
+            Download
+        </label>
       </section>
     </>
   )
