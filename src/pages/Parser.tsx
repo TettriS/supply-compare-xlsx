@@ -38,10 +38,18 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
         'm': 2,
         'M': 2,
     }
-    const boxID = supplyTable.rows.map(({ 'ШК короба': boxID }) => (boxID))
+    const boxID = supplyTable.rows.reduceRight<string[]>((acc, { 'ШК короба': boxID }) => ([...acc, boxID]), [])
     const boxNumberMap: Record<string, string | undefined> = {}
     const boxMonoMap: Record<string, string | undefined> = {}
-    const boxesList = listComplectionTable.rows.reduce<Record<string, string>[]>((boxAccumulator, complectionTableRow) => {
+    type BoxList = Record<string, string>[];
+    const boxesList = listComplectionTable.rows.reduce<{
+        mono: BoxList,
+        mix: BoxList,
+    }>((boxAccumulator, complectionTableRow) => {
+        const {
+            mono,
+            mix,
+        } = boxAccumulator;
         const {
             'Артикул': SKU,
             'Короб': boxes,
@@ -83,7 +91,7 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
                         result['ШК короба'] = newId || ''
                         result['Кол-во товаров'] = count1
 
-                        boxAccumulator.push({ ...result })
+                        mix.push({ ...result })
                     }
                 } else {// Один короб
                     const id = boxNumberMap[from] || boxID.pop()
@@ -93,7 +101,7 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
                     result['ШК короба'] = id || ''
                     result['Кол-во товаров'] = count1 || count
 
-                    boxAccumulator.push({ ...result })
+                    mix.push({ ...result })
                 }
 
                 break;
@@ -103,14 +111,14 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
 
                 if(count2) {
                     for(let i = 0; i < +count2; i++) {
-                        result['ШК короба'] = boxID.pop() || ''
-                        boxAccumulator.push({ ...result })
+                        result['ШК короба'] = boxID.shift() || ''
+                        mono.push({ ...result })
 
                         boxMonoMap[result['ШК короба']] = `${SKU} - ${result['Кол-во товаров']}`
                     }
                 } else {
-                    result['ШК короба'] = boxID.pop() || ''
-                    boxAccumulator.push({ ...result })
+                    result['ШК короба'] = boxID.shift() || ''
+                    mono.push({ ...result })
 
                     boxMonoMap[result['ШК короба']] = `${SKU} - ${result['Кол-во товаров']}`
                 }
@@ -122,10 +130,10 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
         })
 
         return boxAccumulator;
-    }, [])
+    }, { mono: [], mix: [] })
     const compareTable: NormalizeResult = {
         headers: [...supplyTable.headers, 'Тип', 'test'],
-        rows: boxesList,
+        rows: [...boxesList.mix, ...boxesList.mono],
     }
 
     console.log(compareTable)
