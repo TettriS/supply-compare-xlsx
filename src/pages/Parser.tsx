@@ -38,8 +38,11 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
         'm': 2,
         'M': 2,
     }
-    const boxID = supplyTable.rows.reduceRight<string[]>((acc, { 'ШК короба': boxID }) => ([...acc, boxID]), [])
-    const boxNumberMap: Record<string, string | undefined> = {}
+    const boxIDs = supplyTable.rows.reduceRight<Record<string, string>[]>((
+        acc,
+        { 'ШК короба': boxID, 'ШК короба для печати в стороннем сервисе': qrCode }
+    ) => ([...acc, { boxID, qrCode }]), [])
+    const boxNumberMap: Record<string, typeof boxIDs[0] | undefined> = {}
     const boxMonoMap: Record<string, string | undefined> = {}
     type BoxList = Record<string, string>[];
     const boxesList = listComplectionTable.rows.reduce<{
@@ -69,6 +72,7 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
                 'Кол-во товаров': count,
                 'ШК короба': '',
                 'Срок годности': '',
+                'ШК короба для печати в стороннем сервисе': '',
                 'test': String(`кол-во:${count
                     } подстрока: ${row
                     } найдено: ${match
@@ -84,22 +88,26 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
 
                 if (to) {// Диапазон коробов
                     for(let i = +from; i <= +to; i++) {
-                        const newId = boxNumberMap[i] || boxID.pop()
+                        const box = boxIDs.pop()
+                        const newId = (boxNumberMap[from] || box)?.boxID
 
-                        boxNumberMap[i] = newId
+                        boxNumberMap[i] = box
 
                         result['ШК короба'] = newId || ''
                         result['Кол-во товаров'] = count1
+                        result['ШК короба для печати в стороннем сервисе'] = box?.qrCode || box?.['ШК короба для печати в стороннем сервисе'] || ''
 
                         mix.push({ ...result })
                     }
                 } else {// Один короб
-                    const id = boxNumberMap[from] || boxID.pop()
+                    const box = boxIDs.pop()
+                    const id = (boxNumberMap[from] || box)?.boxID
 
-                    boxNumberMap[from] = id
+                    boxNumberMap[from] = box
 
                     result['ШК короба'] = id || ''
                     result['Кол-во товаров'] = count1 || count
+                    result['ШК короба для печати в стороннем сервисе'] = box?.qrCode || box?.['ШК короба для печати в стороннем сервисе'] || ''
 
                     mix.push({ ...result })
                 }
@@ -111,13 +119,21 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
 
                 if(count2) {
                     for(let i = 0; i < +count2; i++) {
-                        result['ШК короба'] = boxID.shift() || ''
+                        const box = boxIDs.shift()
+
+                        result['ШК короба'] = box?.boxID || ''
+                        result['ШК короба для печати в стороннем сервисе'] = box?.qrCode || box?.['ШК короба для печати в стороннем сервисе'] || ''
+
                         mono.push({ ...result })
 
                         boxMonoMap[result['ШК короба']] = `${SKU} - ${result['Кол-во товаров']}`
                     }
                 } else {
-                    result['ШК короба'] = boxID.shift() || ''
+                    const box = boxIDs.shift()
+
+                    result['ШК короба'] = box?.boxID || ''
+                    result['ШК короба для печати в стороннем сервисе'] = box?.qrCode || box?.['ШК короба для печати в стороннем сервисе'] || ''
+
                     mono.push({ ...result })
 
                     boxMonoMap[result['ШК короба']] = `${SKU} - ${result['Кол-во товаров']}`
@@ -139,7 +155,7 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
     console.log(compareTable)
 
     const box1  = Object.entries(boxNumberMap).map(([key, value]) => ({
-        'ШК': String(value),
+        'ШК': String(value?.boxID),
         'Тип': 'ОБЩ',
         'Номер/Артикул': String(key)
     }))
@@ -185,6 +201,11 @@ function Parser() {
                     key: 'Срок годности',
                     name: 'Срок годности',
                     index: 3,
+                },
+                {
+                    key: 'ШК короба для печати в стороннем сервисе',
+                    name: 'ШК короба для печати в стороннем сервисе',
+                    index: 4,
                 },
             ],
             0,
