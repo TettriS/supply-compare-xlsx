@@ -88,8 +88,8 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
 
                 if (to) {// Диапазон коробов
                     for(let i = +from; i <= +to; i++) {
-                        const box = boxIDs.pop()
-                        const newId = (boxNumberMap[from] || box)?.boxID
+                        const box = boxNumberMap[from] || boxIDs.pop()
+                        const newId = box?.boxID
 
                         boxNumberMap[i] = box
 
@@ -100,8 +100,8 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
                         mix.push({ ...result })
                     }
                 } else {// Один короб
-                    const box = boxIDs.pop()
-                    const id = (boxNumberMap[from] || box)?.boxID
+                    const box = boxNumberMap[from] || boxIDs.pop()
+                    const id = box?.boxID
 
                     boxNumberMap[from] = box
 
@@ -119,7 +119,7 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
 
                 if(count2) {
                     for(let i = 0; i < +count2; i++) {
-                        const box = boxIDs.shift()
+                        const box = boxIDs.pop()
 
                         result['ШК короба'] = box?.boxID || ''
                         result['ШК короба для печати в стороннем сервисе'] = box?.qrCode || box?.['ШК короба для печати в стороннем сервисе'] || ''
@@ -129,7 +129,7 @@ function compareTables(listComplectionTable: NormalizeResult, supplyTable: Norma
                         boxMonoMap[result['ШК короба']] = `${SKU} - ${result['Кол-во товаров']}`
                     }
                 } else {
-                    const box = boxIDs.shift()
+                    const box = boxIDs.pop()
 
                     result['ШК короба'] = box?.boxID || ''
                     result['ШК короба для печати в стороннем сервисе'] = box?.qrCode || box?.['ШК короба для печати в стороннем сервисе'] || ''
